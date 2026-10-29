@@ -19,5 +19,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Fetch baseline tag from upstream (fork need not publish upstream tags)
+        run: git fetch --no-tags https://github.com/navidrome/navidrome.git refs/tags/v0.64.2:refs/tags/v0.64.2
       - name: Validate P001 contracts (no device or build claim)
         run: python3 scripts/ios/validate_p001.py

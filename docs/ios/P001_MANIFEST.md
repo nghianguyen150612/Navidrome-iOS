@@ -40,7 +40,9 @@ byte for byte before the final successful run.
 
 Fetch the base commit/tag, then run `python3 scripts/ios/validate_p001.py` and
 `git diff --check 101145742f4762164202cb4858c9126258bdc463 HEAD`.
-CI must fetch history. The validator requires git/Python, does not fetch packages
+CI fetches history and the exact upstream tag explicitly: the fork does not
+publish that tag. An initial CI run exposed this missing prerequisite; the
+workflow was corrected without changing the baseline check. The validator requires git/Python, does not fetch packages
 or execute Navidrome, and rejects any P001 change outside its explicit allowlist.
 The baseline's complete source is preserved byte for byte.
 
