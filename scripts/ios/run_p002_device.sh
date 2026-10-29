@@ -49,9 +49,51 @@ reject_music_path() {
 }
 
 write_results_checksums() {
-  if [ -n "$RESULTS" ] && [ -d "$RESULTS" ] && command -v shasum >/dev/null 2>&1; then
-    (cd "$RESULTS" && find . -type f ! -name SHA256SUMS -exec shasum -a 256 {} \; > SHA256SUMS) || true
+  [ -n "$RESULTS" ] && [ -d "$RESULTS" ] || {
+    echo "FAIL: results directory is unavailable; cannot write SHA256SUMS." >&2
+    return 1
+  }
+  command -v shasum >/dev/null 2>&1 || {
+    echo "FAIL: shasum is unavailable; cannot checksum device results." >&2
+    return 1
+  }
+
+  checksums_tmp_name=".p002-SHA256SUMS.$$"
+  files_tmp_name=".p002-checksum-files.$$"
+  checksums_tmp="$RESULTS/$checksums_tmp_name"
+  files_tmp="$RESULTS/$files_tmp_name"
+  rm -f "$checksums_tmp" "$files_tmp" || return 1
+  if ! (cd "$RESULTS" && find . -type f ! -name SHA256SUMS \
+      ! -name "$checksums_tmp_name" ! -name "$files_tmp_name" -print) > "$files_tmp"; then
+    echo "FAIL: cannot enumerate device results for SHA-256 checksums." >&2
+    rm -f "$checksums_tmp" "$files_tmp" || true
+    return 1
   fi
+
+  : > "$checksums_tmp" || {
+    echo "FAIL: cannot create the device results checksum manifest." >&2
+    rm -f "$checksums_tmp" "$files_tmp" || true
+    return 1
+  }
+  checksum_failed=0
+  while IFS= read -r result_file; do
+    [ -n "$result_file" ] || continue
+    if ! (cd "$RESULTS" && shasum -a 256 "$result_file") >> "$checksums_tmp"; then
+      checksum_failed=1
+      break
+    fi
+  done < "$files_tmp"
+  rm -f "$files_tmp" || checksum_failed=1
+  if [ "$checksum_failed" -ne 0 ] || [ ! -s "$checksums_tmp" ]; then
+    echo "FAIL: device results could not be fully checksummed." >&2
+    rm -f "$checksums_tmp" "$RESULTS/SHA256SUMS" || true
+    return 1
+  fi
+  mv -f "$checksums_tmp" "$RESULTS/SHA256SUMS" || {
+    echo "FAIL: cannot install the device results checksum manifest." >&2
+    rm -f "$checksums_tmp" "$RESULTS/SHA256SUMS" || true
+    return 1
+  }
 }
 
 cleanup() {
@@ -78,7 +120,21 @@ cleanup() {
     echo "Refused cleanup because the staging ownership marker did not verify." \
       >> "$RESULTS/cleanup.txt" 2>/dev/null || true
   fi
-  write_results_checksums
+  if [ -n "$RESULTS" ] && [ -d "$RESULTS" ]; then
+    if ! printf 'results_checksums=PASS\n' > "$RESULTS/checksum-status.txt"; then
+      echo "FAIL: cannot record device results checksum status." >&2
+      exit_code=1
+    elif ! write_results_checksums; then
+      printf 'results_checksums=FAIL\n' > "$RESULTS/checksum-status.txt" 2>/dev/null || true
+      if [ -f "$RESULTS/device-status.txt" ] &&
+         grep -qx 'device_execution=PASS' "$RESULTS/device-status.txt"; then
+        printf 'device_execution=FAIL (results checksum generation failed)\n' \
+          > "$RESULTS/device-status.txt" 2>/dev/null || true
+      fi
+      echo "FAIL: device results remain unverified; SHA256SUMS was not produced." >&2
+      exit_code=1
+    fi
+  fi
   exit "$exit_code"
 }
 trap cleanup EXIT
@@ -185,6 +241,7 @@ build_version=$(sysctl -n kern.osversion 2>/dev/null || true)
   fi
   printf 'ldid='; command -v ldid 2>/dev/null || echo unavailable
   printf 'timeout='; command -v timeout 2>/dev/null || echo unavailable
+  printf 'shasum='; command -v shasum 2>/dev/null || echo unavailable
   printf 'time='; if [ -x /usr/bin/time ]; then echo /usr/bin/time; else echo unavailable; fi
 } > "$RESULTS/device-identity.txt"
 
