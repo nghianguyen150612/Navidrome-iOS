@@ -1,0 +1,23 @@
+name: iOS P001 contracts
+on:
+  pull_request:
+    branches: [iOS]
+    paths:
+      - docs/ios/**
+      - scripts/ios/validate_p001.py
+      - .github/workflows/ios-p001.yml
+  push:
+    branches: [feat/p001-ios-baseline-architecture]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate P001 contracts (no device or build claim)
+        run: python3 scripts/ios/validate_p001.py
