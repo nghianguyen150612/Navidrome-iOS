@@ -13,6 +13,27 @@ DOCUMENTS = {'ARCHITECTURE.md', 'COMPATIBILITY.md', 'BUILD_PLAN.md',
              'INSTALLER_CONTRACT.md', 'ROADMAP.md', 'P001_MANIFEST.md', 'audit.json'}
 ALLOWED = {'docs/ios/' + name for name in DOCUMENTS} | {
     'scripts/ios/validate_p001.py', '.github/workflows/ios-p001.yml'}
+# P002 adds runtime-qualification files while preserving the P001 source
+# inventory and canonical contracts checked below. Keep this list explicit so
+# a P002 PR still cannot change Navidrome application or upstream build files.
+ALLOWED |= {
+    '.github/workflows/ios-p002-runtime-qualification.yml',
+    'docs/ios/P002_DEVICE_TEST.md',
+    'docs/ios/P002_MANIFEST.md',
+    'docs/ios/p002-toolchain.json',
+    'scripts/ios/build_p002_probes.sh',
+    'scripts/ios/cleanup_p002_device.sh',
+    'scripts/ios/inspect_p002_macho.py',
+    'scripts/ios/run_p002_device.sh',
+    'scripts/ios/validate_p002.py',
+    'tests/ios/test_validate_p002.py',
+    'tools/ios-p002/native-c/main.c',
+    'tools/ios-p002/pure-go/main.go',
+    'tools/ios-p002/cgo-callback/callback.h',
+    'tools/ios-p002/cgo-callback/callback.c',
+    'tools/ios-p002/cgo-callback/main.go',
+    'tools/ios-p002/multi-p/main.go',
+}
 
 
 def git(*args):

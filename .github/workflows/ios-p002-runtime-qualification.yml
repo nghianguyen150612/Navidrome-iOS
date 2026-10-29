@@ -1,0 +1,113 @@
+name: iOS P002 Go 1.27 A7 runtime qualification
+
+on:
+  push:
+    branches:
+      - feat/p002-ios-a7-go-runtime-probes
+    paths:
+      - '.github/workflows/ios-p002-runtime-qualification.yml'
+      - 'docs/ios/P002_*'
+      - 'docs/ios/COMPATIBILITY.md'
+      - 'docs/ios/ROADMAP.md'
+      - 'docs/ios/p002-toolchain.json'
+      - 'scripts/ios/build_p002_probes.sh'
+      - 'scripts/ios/cleanup_p002_device.sh'
+      - 'scripts/ios/inspect_p002_macho.py'
+      - 'scripts/ios/run_p002_device.sh'
+      - 'scripts/ios/validate_p001.py'
+      - 'scripts/ios/validate_p002.py'
+      - 'tests/ios/test_validate_p002.py'
+      - 'tools/ios-p002/**'
+  pull_request:
+    branches:
+      - iOS
+    paths:
+      - '.github/workflows/ios-p002-runtime-qualification.yml'
+      - 'docs/ios/P002_*'
+      - 'docs/ios/COMPATIBILITY.md'
+      - 'docs/ios/ROADMAP.md'
+      - 'docs/ios/p002-toolchain.json'
+      - 'scripts/ios/build_p002_probes.sh'
+      - 'scripts/ios/cleanup_p002_device.sh'
+      - 'scripts/ios/inspect_p002_macho.py'
+      - 'scripts/ios/run_p002_device.sh'
+      - 'scripts/ios/validate_p001.py'
+      - 'scripts/ios/validate_p002.py'
+      - 'tests/ios/test_validate_p002.py'
+      - 'tools/ios-p002/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-validation:
+    name: Source validation and negative controls
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate P002 source scope and pins
+        run: python3 scripts/ios/validate_p002.py --check-diff
+      - name: Run host-side validator tests and negative controls
+        run: python3 tests/ios/test_validate_p002.py
+      - name: Check shell and Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/ios/build_p002_probes.sh
+          sh -n scripts/ios/run_p002_device.sh
+          python3 -m py_compile scripts/ios/validate_p002.py scripts/ios/inspect_p002_macho.py
+
+  apple-toolchain-qualification:
+    name: Apple SDK toolchain, build, Mach-O inspection and signing
+    needs: source-validation
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Qualify the pinned Go and iPhoneOS toolchain and build stock probes
+        id: qualify
+        shell: bash
+        run: P002_SOURCE_VALIDATION=PASS scripts/ios/build_p002_probes.sh build/ios/p002
+      - name: Toolchain qualification status
+        if: always()
+        run: grep -qx 'toolchain_qualification=PASS' build/ios/p002/statuses.txt
+      - name: Compilation and linking status
+        if: always()
+        run: grep -qx 'compilation_linking=PASS' build/ios/p002/statuses.txt
+      - name: Mach-O inspection status
+        if: always()
+        run: grep -qx 'macho_inspection=PASS' build/ios/p002/statuses.txt
+      - name: Signing status
+        if: always()
+        run: grep -qx 'signing=PASS' build/ios/p002/statuses.txt
+      - name: Upload probe bundle and diagnostic manifests
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: navidrome-ios-p002-a7-go-runtime-probes
+          path: build/ios/p002
+          if-no-files-found: warn
+          retention-days: 30
+
+  physical-device-execution-blocked:
+    name: Physical device execution — BLOCKED (manual iPad required)
+    if: always()
+    needs:
+      - source-validation
+      - apple-toolchain-qualification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report physical-device gate
+        run: |
+          echo 'PHYSICAL_DEVICE_EXECUTION=BLOCKED'
+          echo 'No iPad4,4 is attached to GitHub Actions. Use docs/ios/P002_DEVICE_TEST.md.'
+          echo 'A successful CI build does not mark physical-device execution as passed.'

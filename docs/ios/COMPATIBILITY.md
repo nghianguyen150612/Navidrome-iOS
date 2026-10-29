@@ -7,12 +7,12 @@ evidence. Source risks are not device failures.
 | Area | Finding | Status / gate |
 | --- | --- | --- |
 | Baseline | Upstream v0.64.2 equals pinned SHA; fork master equals upstream master at audit | PASS: git remote queries |
-| Go requirement | go.mod says 1.27; Go go1.27.0 tag resolves to 8af21751f066eced273ca3ce49506b366847c623 | PASS: source/ref check only |
-| Builder | Linux workspace /usr/bin/go responds `Go: Unknown option: version`; no usable Go version established | BLOCKED: application build/tests |
-| Darwin/iOS | GOOS=ios GOARCH=arm64 CGO_ENABLED=1 is candidate; macOS darwin/arm64 is not an iOS binary | NOT TESTED: full compile/link |
-| A7 runtime | Go 1.27 asm_arm64.s procyieldAsm reads CNTFRQ_EL0/CNTVCT_EL0; Beszel patches this to YIELD | PASS: source risk identified; NOT TESTED: Navidrome device execution |
-| Minimum OS | iOS 12.5.7 device, proposed binary deployment floor 12.0 | NOT TESTED: runtime minimum, symbols, load commands; compiler flag alone insufficient |
-| SDK/Xcode | Reference macos-14 runner selects installed iphoneos SDK; no Navidrome Xcode/SDK pairing qualified | BLOCKED: Apple builder/SDK unavailable here |
+| Go requirement | go.mod says 1.27; P002 pins Go 1.27.3 tag at 2aae1000ea1d4b28923b96db28acf4e3b99d6aff and verifies the source archive SHA-256 | PASS: tag/source pin; NOT TESTED: macOS archive verification awaits workflow |
+| Builder | Linux workspace /usr/bin/go responds `Go: Unknown option: version`; Go 1.27.3 source archive was downloaded and digest-verified | BLOCKED: no local Apple SDK or application build |
+| Darwin/iOS | P002 configures GOOS=ios GOARCH=arm64, PIE, iOS SDK clang and CGo only for the callback probe | NOT TESTED until macOS build job completes; darwin/arm64 is not an iOS binary |
+| A7 runtime | Go 1.27.3 procyieldAsm executes ISB, reads CNTFRQ_EL0/CNTVCT_EL0 and loops until a timer interval elapses | PASS: pinned source inspection; NOT TESTED: stock runtime on iPad4,4 |
+| Minimum OS | P002 requests iOS 12.0 for native C and Go external links and checks Mach-O load commands | NOT TESTED: SDK build/load commands and runtime minimum |
+| SDK/Xcode | Dedicated P002 workflow requires xcrun's actual iphoneos SDK and records Xcode, SDK, clang and linker versions | BLOCKED locally: no Apple SDK; NOT TESTED: CI qualification awaits workflow |
 | CGo/libSystem | SQLite callbacks, pthread/TLS, signals, time, DNS, mmap, file locks/fsync need device tests | NOT TESTED |
 | SQLite/FTS5 | Bundled amalgamation with sqlite_fts5 enables SQLITE_ENABLE_FTS5; never assume system SQLite supports it | PASS: source; NOT TESTED: WAL, migrations, locks, recovery, FTS queries |
 | TagLib/C++ | Actual pinned replacement embeds taglib.wasm and uses wazero.NewRuntimeConfig | PASS: source; NOT TESTED: execution/metadata/artwork memory |
@@ -21,7 +21,7 @@ evidence. Source risks are not device failures.
 | WebP | unix/darwin dynamic backend uses purego callbacks; nodynamic candidate avoids native libwebp loading | NOT TESTED: build and WASM image behavior |
 | FFmpeg | server/initial_setup.go warns when missing; raw stream path uses os.Open | PASS: source; NOT TESTED: Direct Play; transcoding deferred |
 | UI/API | UI embeds build assets and existing OpenSubsonic routes are present | PASS: source; NOT TESTED: served assets/auth/playback; old Safari compatibility separate |
-| dylibs/signing | No Mach-O produced, dylib closure or entitlements observed | BLOCKED: build; NOT TESTED: signing/device execution |
+| dylibs/signing | P002 inspection records each probe's load commands, dylibs, imports, code signature and entitlements | NOT TESTED until macOS build job completes |
 | Filesystem | Mount identity, APFS permissions, WAL and free space not observed on device | NOT TESTED |
 | Network/launchd | Non-root socket binding, DNS/TLS, start/stop/reboot/sleep not exercised | NOT TESTED |
 | Memory | No workload executed on iPad4,4 | NOT TESTED: no footprint claims |
@@ -38,3 +38,8 @@ No verified Navidrome device blocker is claimed: none was run on an iPad.
 The verified source blocker is the default CoreServices watcher dependency.
 Other high-priority unresolved gates are Go 1.27/A7, SDK minimum, WASM execution,
 service-account access to APFS and aggregate memory.
+
+P002 supplies stock C, pure-Go, CGo callback and multi-P probes plus a bounded
+device runner. Its current decision remains BLOCKED until the iPhoneOS build is
+inspected and the checksummed probes run on iPad4,4 / iOS 12.5.7. No runtime
+failure or signing acceptance is claimed from source review or CI compilation.

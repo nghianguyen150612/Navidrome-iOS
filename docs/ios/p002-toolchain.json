@@ -1,0 +1,40 @@
+{
+  "go_version": "go1.27.3",
+  "go_tag": "go1.27.3",
+  "go_source_commit": "2aae1000ea1d4b28923b96db28acf4e3b99d6aff",
+  "go_source_archive_sha256": "6e7749035cf360f06b2575d162ea79df9fda8ef671889e5c375f8e50777f26bb",
+  "go_archives": {
+    "darwin-amd64": {
+      "file": "go1.27.3.darwin-amd64.tar.gz",
+      "sha256": "b6f8e931e4ab497fcde6da8ae4499a58f9d258e55c8a80824a516eae5950a750"
+    },
+    "darwin-arm64": {
+      "file": "go1.27.3.darwin-arm64.tar.gz",
+      "sha256": "dd3908cf20959d798c1e06ebe5b72213f0505ce01373b40ce3110975a6cd99c2"
+    }
+  },
+  "target": {
+    "GOOS": "ios",
+    "GOARCH": "arm64",
+    "minimum_ios": "12.0",
+    "buildmode": "pie",
+    "probe_cgo": {
+      "native-c": false,
+      "pure-go": false,
+      "cgo-callback": true,
+      "multi-p": false
+    }
+  },
+  "runtime_source_sha256": {
+    "src/runtime/asm_arm64.s": "47f9313d4f956b4159dcf8b292bf340a12adb6b58ee9a94360fe948045e2c5db",
+    "src/runtime/os_darwin.go": "5fbeed78977bcae998e0b48dea235690be222cef8713c29397ae941cd1ea9685",
+    "src/cmd/link/internal/ld/config.go": "42f27ac065d432af80cb810d9ef0844d9dac7a3752d4da52f7e92feda653ccbd",
+    "src/internal/platform/supported.go": "b2ee50eb1857a0dfd98cbfbd0c8a6c78f3a3e334cfc56557a24c8517681bc442"
+  },
+  "signing": {
+    "tool": "Apple codesign",
+    "method": "ad-hoc signature",
+    "entitlements": "none"
+  },
+  "source": "Official go.dev distribution metadata and Go source tag; archive hashes are verified by CI before use."
+}
