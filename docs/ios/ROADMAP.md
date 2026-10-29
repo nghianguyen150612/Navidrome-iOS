@@ -1,14 +1,16 @@
 # P001–P024 gated roadmap
 
-Only P001 is implemented. Every row requires reproducible tests and its own
-manifest (schema described in BUILD_PLAN.md). A failed prerequisite blocks
-dependent work; optional transcoding does not block Direct Play release.
-No milestone is passed by compilation alone.
+P001 is merged. The P002 qualification harness is prepared; P002 is not
+accepted while Apple build evidence or physical-device execution is missing.
+Every row requires reproducible tests and its own manifest (schema described in
+BUILD_PLAN.md). A failed prerequisite blocks dependent work;
+optional transcoding does not block Direct Play release. Compilation alone
+does not pass a milestone.
 
 | Milestone | Scope | Dependencies | Acceptance gate |
 | --- | --- | --- | --- |
 | P001 | Baseline audit and contracts | — | Source refs verified; docs/scaffold pass; no upstream edits |
-| P002 | Go 1.27/A7 runtime feasibility | P001 | Pinned Apple/Go tools; stock C/Go/CGo/multi-P signed probes on device; crash logs and explicit go/no-go |
+| P002 | Go 1.27/A7 runtime feasibility | P001 | Pinned Apple/Go tools; stock C/Go/CGo/multi-P signed probes on device; crash logs and explicit go/no-go. Current state: BLOCKED pending macOS qualification and physical iPad run |
 | P003 | Reproducible iOS build skeleton | P002 | Clean builds, tags and Mach-O/dylib/minimum-OS inspection; manifest |
 | P004 | SQLite and FTS5 qualification | P003 | Real device callbacks, FTS, WAL/locks, integrity and migration fixtures |
 | P005 | Watcher platform adapter | P003 | No CoreServices; real kqueue rename/unmount/event tests, descriptor budget |
@@ -36,10 +38,9 @@ P024 depends on P019 only if transcoding is promoted into the release. Otherwise
 record it as deferred, with failures visible. Changes to baseline, Go patches,
 SDK or native dependencies reopen affected runtime and release gates.
 
-Exact next step: P002 must pin a Go 1.27 patch archive and Apple toolchain,
-inspect their documented iOS minimum, build stock native C, pure Go, CGo callback
-and multi-P/yield probes using GOOS=ios/arm64 and minimum 12.0, inspect Mach-O,
-sign under a documented minimal policy and run on iPad4,4/iOS 12.5.7. Capture
-exit codes, dyld/crash logs, signatures, source hashes and disassembly. If the
-stock runtime fails, reproduce and test a narrowly reviewed A7 runtime patch;
-do not start application porting until this gate has an explicit decision.
+Exact next step: run the P002 workflow, then execute its checksummed bundle on
+iPad4,4 / iOS 12.5.7 using docs/ios/P002_DEVICE_TEST.md. Capture exit codes,
+dyld/crash/jetsam logs, signatures, runtime and memory observations, source
+hashes and disassembly. If the stock runtime fails, reproduce and identify the
+instruction or subsystem before considering a narrowly reviewed runtime patch.
+Do not start application porting until P002 has an explicit GO decision.
