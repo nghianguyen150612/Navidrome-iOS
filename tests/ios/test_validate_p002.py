@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -14,6 +15,7 @@ from validate_p002 import (  # noqa: E402
     ValidationError,
     parse_checksum_manifest,
     validate_macho_records,
+    validate_pin,
 )
 from inspect_p002_macho import (  # noqa: E402
     InspectionError,
@@ -28,6 +30,20 @@ PROBES = (
     "go-cgo-probe",
     "go-multip-probe",
 )
+
+
+class ToolchainPinTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.pin = json.loads((ROOT / "docs/ios/p002-toolchain.json").read_text())
+
+    def test_go_probe_build_enables_external_cgo_linking(self) -> None:
+        validate_pin(self.pin)
+
+    def test_negative_control_rejects_cgo_disabled_for_ios(self) -> None:
+        pin = json.loads(json.dumps(self.pin))
+        pin["target"]["go_probe_cgo_enabled"] = False
+        with self.assertRaises(ValidationError):
+            validate_pin(pin)
 
 
 def good_records() -> list[dict[str, object]]:

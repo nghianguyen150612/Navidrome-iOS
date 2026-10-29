@@ -119,13 +119,15 @@ def validate_pin(pin: dict[str, object]) -> None:
         target.get("buildmode"),
     ) != ("ios", "arm64", "12.0", "pie"):
         raise ValidationError("target pin must be ios/arm64, iOS 12.0, buildmode pie")
-    if target.get("probe_cgo") != {
+    if target.get("go_probe_cgo_enabled") is not True:
+        raise ValidationError("all ios/arm64 Go probes must enable CGo for external linking")
+    if target.get("probe_uses_cgo") != {
         "native-c": False,
         "pure-go": False,
         "cgo-callback": True,
         "multi-p": False,
     }:
-        raise ValidationError("probe CGo matrix does not match the probe sources")
+        raise ValidationError("probe CGo source-use matrix does not match the probe sources")
 
 
 def source_files() -> tuple[Path, ...]:

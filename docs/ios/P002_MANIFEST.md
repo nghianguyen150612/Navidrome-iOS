@@ -67,10 +67,12 @@ The qualification job requires an actual Xcode iPhoneOS SDK from `xcrun`; it
 blocks if that SDK is unavailable. The clang wrapper supplies ARM64, the SDK
 sysroot, and `-miphoneos-version-min=12.0`. `MACOSX_DEPLOYMENT_TARGET` is rejected.
 The Go probes use `GOOS=ios`, `GOARCH=arm64`, PIE, and the pinned toolchain.
-Pure Go and multi-P are built with CGo disabled; only the callback probe uses
-CGo. CGo pointer checks are enabled at level 2. The build disables per-user Go
-environment settings, clears CGo flag overrides, records the selected SDKROOT,
-and stores the exact build and linker invocations.
+Go 1.27.3 requires external CGo linking for `ios/arm64`, so every Go executable
+is built with `CGO_ENABLED=1` and `-linkmode=external`. The pure-Go and multi-P
+sources do not import CGo; only the callback source calls C. CGo pointer checks
+are enabled at level 2. The build disables per-user Go environment settings,
+clears CGo flag overrides, records the selected SDKROOT, and stores the exact
+build and linker invocations.
 
 CI signs each executable with Apple's ad-hoc codesign and no entitlements. It
 records unsigned and signed SHA-256 values, Mach-O type, ARM64 architecture,
@@ -86,23 +88,26 @@ Device launch results provide the required runtime evidence.
 | P001 review and merge | PASS | PR #1 targeted `iOS`, expected head was unchanged, both Actions checks succeeded, no review blockers existed; merged SHA above |
 | Go release/source pin | PASS | `go1.27.3` source tag and commit verified; source archive SHA-256 downloaded and verified; official per-host archive hashes pinned |
 | Beszel-iOS / Forgejo-iOS references | PASS | Pinned source file hashes match audit.json; patterns reviewed without copying runtime patches or signing assumptions |
-| Host-side validation | PASS | P001 and P002 source validators; 12 host-side tests including malformed checksum, macOS platform, unsupported minimum OS, weak framework and host-SDK negative controls; Go vet, gofmt and syntax checks |
+| Host-side validation | PASS | P001 and P002 source validators; 14 host-side tests including malformed checksum, CGo build-mode, macOS platform, unsupported minimum OS, weak framework and host-SDK negative controls; Go vet, gofmt and syntax checks |
 | Host-only source build and execution | PASS | Verified Go 1.27.3 Linux/amd64 built and ran native C, pure-Go, CGo callback, and multi-P (1 and 2) probes; this does not qualify iOS/ARM64 |
 | Local Apple SDK/toolchain | BLOCKED | Workspace is Linux x86_64; `xcrun`, iPhoneOS SDK, Apple clang, `otool`, and `codesign` are unavailable |
-| CI toolchain/archive verification | NOT TESTED | Record the `apple-toolchain-qualification` job result and artifact manifest after CI runs |
-| Probe compilation/linking | NOT TESTED | Requires the macOS iPhoneOS SDK workflow |
-| Mach-O inspection | NOT TESTED | Requires generated iOS ARM64 executables and Apple inspection tools |
-| Ad-hoc signing | NOT TESTED | Requires Apple codesign on the generated Mach-O files |
+| P002 CI source validation | PASS | GitHub workflow run `40871355426` on the first commit: source scope/pins, 12 tests, and syntax checks succeeded; corrected commit will rerun these checks |
+| Apple toolchain/archive qualification | PASS | macOS 15.7.9 arm64; Xcode 16.4 build 16F6; iPhoneOS SDK 18.5; Apple clang 17.0.0; linker `ld-1167.5`; pinned Go 1.27.3 macOS archive hash verified |
+| Probe compilation/linking | FAIL (first CI run; configuration corrected, rerun pending) | Native C compiled; pure-Go build exposed that `ios/arm64` requires external CGo linking. The initial build incorrectly set `CGO_ENABLED=0`; this is not a runtime failure |
+| Mach-O inspection | NOT TESTED | Go probe compilation stopped before Mach-O inspection |
+| Ad-hoc signing | NOT TESTED | Go probe compilation stopped before signing |
 | Physical iPad execution | BLOCKED | No iPad4,4 / iOS 12.5.7 device session is attached; no device logs or measurements are claimed |
 | Go A7 runtime failure | NOT TESTED | Stock runtime must run on the physical device before any patch is considered |
 | Runtime patch | NONE | Stock Go source and binaries only |
-| P002 decision | BLOCKED — NO-GO for P003 | Physical-device qualification is a required prerequisite |
+| P002 decision | FAIL — NO-GO for P003 (corrected CI rerun pending) | The first iOS compile failed from a harness configuration error; A7 runtime remains NOT TESTED and the physical-device gate is BLOCKED |
 
-The macOS workflow records separate source-validation, toolchain,
-compilation/linking, Mach-O inspection, signing and physical-device statuses.
-CI records physical-device execution as BLOCKED even when all build stages pass.
-Its downloadable zip and sidecar checksum are generated only after successful
-build, inspection and signing.
+The first macOS workflow run recorded source validation and toolchain
+qualification as PASS, compilation/linking as FAIL due to the CGo build-mode
+configuration, Mach-O and signing as NOT TESTED, and physical-device execution
+as BLOCKED. The configuration now enables external CGo linking for every Go
+probe; the corrected run must pass before a device bundle can be used. The
+workflow records each status separately and leaves physical-device execution
+BLOCKED even when all build stages pass.
 
 ## Remaining action
 

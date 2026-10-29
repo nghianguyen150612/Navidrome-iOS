@@ -18,7 +18,8 @@
     "GOARCH": "arm64",
     "minimum_ios": "12.0",
     "buildmode": "pie",
-    "probe_cgo": {
+    "go_probe_cgo_enabled": true,
+    "probe_uses_cgo": {
       "native-c": false,
       "pure-go": false,
       "cgo-callback": true,

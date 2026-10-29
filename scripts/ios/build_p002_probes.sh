@@ -149,7 +149,8 @@ record = {
     "environment_policy": {
         "GOOS": "ios",
         "GOARCH": "arm64",
-        "CGO_ENABLED": "0 for pure-Go and multi-P probes; 1 for the CGo probe",
+        "CGO_ENABLED": "1 for every Go probe because ios/arm64 requires external CGo linking",
+        "probe_source_uses_cgo": "only the callback probe; pure-Go and multi-P import no CGo code",
         "IOS_MINIMUM_OS": "12.0",
         "CC": "xcrun iphoneos SDK clang wrapper with -arch arm64, -isysroot, and -miphoneos-version-min=12.0",
         "SDKROOT": "the xcrun-selected iphoneos SDK",
@@ -355,12 +356,14 @@ export P002_CLANG P002_IOS_SDK
   printf 'Go source archive SHA256=%s\n' "$(pin_value go_source_archive_sha256)"
   printf 'Deployment target=12.0\n'
   printf 'Build mode=pie (explicitly supported by Go 1.27.3 ios/arm64)\n'
-  printf 'Go build flags=-x -trimpath -buildvcs=false -mod=readonly -buildmode=pie\n'
+  printf 'Go build flags=-x -trimpath -buildvcs=false -mod=readonly -buildmode=pie -ldflags=-linkmode=external\n'
   printf 'CGo checkptr flags=-gcflags=all=-d=checkptr=2 (callback probe only)\n'
   printf 'Native C flags=-std=c11 -O2 -Wall -Wextra -Werror -pthread\n'
   printf 'Code-signing tool path='; xcrun --find codesign
   printf 'Code-signing tool help='; codesign -h 2>&1 | head -n 1 || true
   printf 'GOENV=off\nGOTOOLCHAIN=local\nGOFLAGS=\n'
+  printf 'CGO_ENABLED=1 for all Go probes; only the callback source imports CGo\n'
+  printf 'Go external link flag=-linkmode=external\n'
   printf 'SDKROOT=%s\n' "$sdk_path"
   printf 'CGO_CPPFLAGS=\nCGO_CFLAGS=\nCGO_CXXFLAGS=\nCGO_LDFLAGS=\n'
   printf 'GOOS=ios\nGOARCH=arm64\n'
@@ -393,8 +396,9 @@ go_version=$("$go_bin" version)
 {
   printf 'Verified Go version='; "$go_bin" version
   printf 'GOROOT=%s\n' "$goroot"
-  printf 'Go env for pure-Go probe:\n'
-  env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS= SDKROOT="$sdk_path" \
+  printf 'Go env for pure-Go probe (CGo enabled for required external linking):\n'
+  env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=1 CC="$cc_wrapper" SDKROOT="$sdk_path" \
+    CGO_CPPFLAGS= CGO_CFLAGS= CGO_CXXFLAGS= CGO_LDFLAGS= GOTOOLCHAIN=local GOFLAGS= \
     "$go_bin" env -json GOOS GOARCH CGO_ENABLED GOHOSTOS GOHOSTARCH GOVERSION GOROOT CC GOFLAGS GOTOOLCHAIN GOEXPERIMENT
   printf '\nGo env for CGo probe:\n'
   env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=1 CC="$cc_wrapper" SDKROOT="$sdk_path" \
@@ -454,10 +458,10 @@ if ! "$clang_path" -arch arm64 -isysroot "$sdk_path" -miphoneos-version-min=12.0
   fail_compile "native C probe compilation/linking failed"
 fi
 
-if ! env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=0 CC="$cc_wrapper" SDKROOT="$sdk_path" \
+if ! env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=1 CC="$cc_wrapper" SDKROOT="$sdk_path" \
   CGO_CPPFLAGS= CGO_CFLAGS= CGO_CXXFLAGS= CGO_LDFLAGS= GOTOOLCHAIN=local GOFLAGS= \
   "$go_bin" build -x -trimpath -buildvcs=false -mod=readonly -buildmode=pie \
-  -o "$BUNDLE/go-pure-probe" ./tools/ios-p002/pure-go \
+  -ldflags=-linkmode=external -o "$BUNDLE/go-pure-probe" ./tools/ios-p002/pure-go \
   > "$LOGS/go-pure-build.log" 2>&1; then
   fail_compile "pure-Go iOS probe compilation/linking failed"
 fi
@@ -465,15 +469,16 @@ fi
 if ! env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=1 CC="$cc_wrapper" SDKROOT="$sdk_path" \
   CGO_CPPFLAGS= CGO_CFLAGS= CGO_CXXFLAGS= CGO_LDFLAGS= GOTOOLCHAIN=local GOFLAGS= \
   "$go_bin" build -x -trimpath -buildvcs=false -mod=readonly -buildmode=pie \
-  -gcflags=all=-d=checkptr=2 -o "$BUNDLE/go-cgo-probe" ./tools/ios-p002/cgo-callback \
+  -ldflags=-linkmode=external -gcflags=all=-d=checkptr=2 \
+  -o "$BUNDLE/go-cgo-probe" ./tools/ios-p002/cgo-callback \
   > "$LOGS/go-cgo-build.log" 2>&1; then
   fail_compile "CGo callback iOS probe compilation/linking failed"
 fi
 
-if ! env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=0 CC="$cc_wrapper" SDKROOT="$sdk_path" \
+if ! env GOENV=off GOOS=ios GOARCH=arm64 CGO_ENABLED=1 CC="$cc_wrapper" SDKROOT="$sdk_path" \
   CGO_CPPFLAGS= CGO_CFLAGS= CGO_CXXFLAGS= CGO_LDFLAGS= GOTOOLCHAIN=local GOFLAGS= \
   "$go_bin" build -x -trimpath -buildvcs=false -mod=readonly -buildmode=pie \
-  -o "$BUNDLE/go-multip-probe" ./tools/ios-p002/multi-p \
+  -ldflags=-linkmode=external -o "$BUNDLE/go-multip-probe" ./tools/ios-p002/multi-p \
   > "$LOGS/go-multi-p-build.log" 2>&1; then
   fail_compile "multi-P iOS probe compilation/linking failed"
 fi
